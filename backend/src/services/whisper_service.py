@@ -54,5 +54,26 @@ class WhisperService:
 whisper_service = WhisperService()
 
 
+def available() -> Dict[str, Any]:
+    """Check availability of speech-to-text service."""
+    try:
+        from src.services import local_speech
+        status_info = local_speech.status()
+        stt = status_info.get("stt", {})
+        return {
+            "available": stt.get("available", False),
+            "model": stt.get("model", "base"),
+            "note": "local CPU transcription - no cloud, no key" if stt.get("available") else "text-only mode - run `pip install faster-whisper` for local speech",
+            "engine": stt.get("engine", "none"),
+        }
+    except Exception as exc:
+        return {
+            "available": False,
+            "model": "base",
+            "note": f"speech module unavailable: {exc}",
+            "engine": "none",
+        }
+
+
 async def transcribe_audio_file(file) -> str:
     return await whisper_service.transcribe_audio_file(file)

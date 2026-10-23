@@ -101,7 +101,7 @@ def check_model() -> None:
         return
 
     if not status["reachable"]:
-        record(FAIL, "model (ollama)", status["hint"])
+        record(WARN, "model (ollama)", f"{status['hint']} (degraded mode: offline/deterministic paths still run)")
         return
 
     record(OK, "model (ollama)", status["endpoint"])
@@ -161,11 +161,15 @@ def check_storage() -> None:
 def check_stt() -> None:
     try:
         from src.services.whisper_service import available
-    except Exception as exc:  # noqa: BLE001
-        record(WARN, "stt", f"unavailable: {exc.__class__.__name__}")
-        return
-    status = available()
-    record(OK if status["available"] else WARN, "stt", status["note"])
+        status = available()
+    except Exception:
+        try:
+            from src.services import local_speech
+            status = local_speech.status().get("stt", {})
+        except Exception as exc:  # noqa: BLE001
+            record(WARN, "stt", f"unavailable: {exc.__class__.__name__}")
+            return
+    record(OK if status.get("available") else WARN, "stt", status.get("note", "text-only mode"))
 
 
 def check_port(port: int = 8000) -> None:

@@ -136,6 +136,7 @@ check(
     str(r),
 )
 check("union of no boxes is None", union_rects([]) is None and union_rects(iter([])) is None)
+check("union ignores None entries in iterable", union_rects([None, {"x0": 5, "y0": 5, "x1": 15, "y1": 15}, None]) == {"x0": 5, "y0": 5, "x1": 15, "y1": 15})
 
 # 2. clamp
 r = clamp_rect({"x0": -12, "y0": 780, "x1": 700, "y1": 830}, PAGE_WIDTH, PAGE_HEIGHT)
@@ -150,6 +151,8 @@ check(
     close(r["x0"], 30) and close(r["x1"], 90) and close(r["y0"], 100) and close(r["y1"], 200),
     str(r),
 )
+r = clamp_rect({"x0": 10, "y0": 10, "x1": 20, "y1": 20}, 0, 0)
+check("clamp handles zero dimensions safely", r["x0"] == 0.0 and r["x1"] == 0.0)
 
 # 3. every word is pinned to its own offsets
 check("every word on the page gets a span", len(SPANS) == len(WORDS), f"{len(SPANS)} of {len(WORDS)}")
@@ -215,6 +218,7 @@ check(
     f"{r} leftmost {min(word_box('148/92')['x0'], word_box('Repeat')['x0'])}",
 )
 check("a range with no words under it has no box", span_to_rect(SPANS, len(PAGE_TEXT) + 5, len(PAGE_TEXT) + 20) is None)
+check("span_to_rect with inverted range returns None", span_to_rect(SPANS, 50, 10) is None)
 
 # 6. a chunk that cannot be located
 check(

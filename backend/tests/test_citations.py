@@ -140,6 +140,37 @@ check("no claims is handled", r.coverage == 0.0 and r.headline == "no claims off
 # 10. normalisation is stable
 check("normalize collapses whitespace", normalize("A  b\tc\n") == "a b c")
 check("normalize folds curly apostrophes", normalize("patient\u2019s") == "patient's")
+check("normalize folds curly double quotes", normalize("\u201chello\u201d") == '"hello"')
+check("normalize handles en dash and em dash", normalize("fever \u2013 cough \u2014 dyspnoea") == "fever - cough - dyspnoea")
+
+# 11. edge cases: repeated quotes across multiple pages
+pages_multi = {
+    1: "Patient admitted on 09 Aug 2026 for observation.",
+    2: "No acute distress noted.",
+    3: "Summary note: Patient admitted on 09 Aug 2026 for observation.",
+}
+r = verify([{"claim": "Admission date", "quote": "admitted on 09 Aug 2026", "page": 2}], pages_multi)
+check("repeated quote on wrong page is corrected", r.claims[0].status == "page_corrected")
+check("reason mentions multiple page occurrences", "appears on 2 pages" in r.claims[0].reason, r.claims[0].reason)
+
+# 12. edge cases: malformed and missing page values
+r = verify([{"claim": "Invalid page format", "quote": "SpO2 91% on room air", "page": "page 1"}], PAGES)
+check("non-integer page string defaults safely and corrects", r.claims[0].status == "page_corrected" and r.claims[0].page == 1)
+
+r = verify([{"claim": "None page provided", "quote": "SpO2 91% on room air", "page": None}], PAGES)
+check("None page locates first occurrence", r.claims[0].status == "page_corrected" and r.claims[0].page == 1)
+
+# 13. empty document and empty text
+r = verify([{"claim": "Some claim", "quote": "SpO2 91% on room air", "page": 1}], {})
+check("empty pages drops claim gracefully", r.claims[0].status == "dropped")
+
+r = verify([{"claim": "Empty string quote", "quote": "   ", "page": 1}], PAGES)
+check("whitespace-only quote is dropped as no line", r.claims[0].reason == "no line offered")
+
+# 14. semantic limitation awareness (documenting that string matching proves quote presence, not clinical truth)
+# An erroneous or contradictory claim citing a real verbatim line still matches the quote presence
+r = verify([{"claim": "Patient had NO fever at all", "quote": "temp 38.6 C", "page": 1}], PAGES)
+check("verifier checks quote presence rather than semantic truth", r.claims[0].status == "supported")
 
 # ---------------------------------------------------------------- result
 

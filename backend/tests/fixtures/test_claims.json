@@ -1,0 +1,37 @@
+[
+  {
+    "claim": "Patient was hypoxic on admission",
+    "quote": "SpO2 91% on room air, temperature 38.6 C.",
+    "page": 1,
+    "confidence": 0.95,
+    "kind": "vital"
+  },
+  {
+    "claim": "Follow-up includes a repeat chest X-ray in six weeks",
+    "quote": "Repeat chest radiograph in 6 weeks.",
+    "page": 1,
+    "confidence": 0.92,
+    "kind": "recommendation"
+  },
+  {
+    "claim": "Patient underwent emergency appendectomy",
+    "quote": "emergency appendectomy performed under general anaesthesia",
+    "page": 2,
+    "confidence": 0.9,
+    "kind": "procedure"
+  },
+  {
+    "claim": "Patient has history of coronary artery disease",
+    "quote": "",
+    "page": 1,
+    "confidence": 0.4,
+    "kind": "history"
+  },
+  {
+    "claim": "Patient presented with fever",
+    "quote": "fever",
+    "page": 1,
+    "confidence": 0.7,
+    "kind": "symptom"
+  }
+]

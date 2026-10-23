@@ -62,69 +62,97 @@ It also means the demo works when the venue wifi does not.
 
 ## 3. Quick start (no keys)
 
-```bash
-# 1. models (one-time)
+### Windows PowerShell
+
+```powershell
+# 1. Models (optional - run when Ollama is installed)
 ollama serve
 ollama pull qwen2.5:7b-instruct
 ollama pull medgemma:4b          # or any medical model you prefer
 
-# 2. backend
+# 2. Backend
 cd backend
-python -m venv .venv && .venv\Scripts\activate     # Windows
-pip install -r requirements.txt
-cp .env.example .env                                # optional: every value has a default
-python scripts/preflight.py                         # what is actually operational?
-uvicorn src.server:app --reload --port 8000
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env                       # zero-key offline defaults
+.\.venv\Scripts\python.exe scripts\preflight.py    # health check
+.\.venv\Scripts\python.exe -m uvicorn src.server:app --port 8000
 
-# 3. frontend
+# 3. Frontend (in a separate terminal)
+cd frontend
+npm install
+Copy-Item .env.example .env                       # default VITE_API_BASE_URL=http://localhost:8000
+npm run dev
+```
+
+### Linux / macOS
+
+```bash
+# 1. Models
+ollama serve
+ollama pull qwen2.5:7b-instruct
+ollama pull medgemma:4b
+
+# 2. Backend
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python scripts/preflight.py
+python -m uvicorn src.server:app --port 8000
+
+# 3. Frontend
 cd ../frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
 Then:
 
 * `http://localhost:8000/healthz` — model / Mongo / storage / STT / RAG status
-* `http://localhost:8000/docs` — OpenAPI
-* `http://localhost:5173` — doctor and patient portals
+* `http://localhost:8000/docs` — OpenAPI documentation
+* `http://localhost:3000` (or `http://localhost:5173`) — doctor and patient portals
 
-**Nothing above requires an account, a card or a key.** If `ollama` is absent the API
+**Nothing above requires an account, a card or an API key.** If `ollama` is absent the API
 still boots and `/healthz` says `degraded` with the exact command to fix it.
-MongoDB is the same: absent means the portals have no data, not that the server dies.
+MongoDB is the same: absent means the portals show degraded status, not that the server dies.
 
 ### Degrade matrix
 
-| Missing | What happens |
-|---|---|
-| Ollama / model weights | `/healthz` → degraded; model routes return a fix hint; cached answers still replay |
-| `MONGODB_URI` | Portals show no data; AI + document paths still work |
-| R2 credentials | Uploads go to `backend/data/uploads`, served at `/files/<name>` |
-| `faster-whisper` | Text-only mode; audio endpoints return a fix hint |
-| `faiss` / `sentence-transformers` | Document RAG reports unavailable; citations and extraction on supplied text still work |
+| Subsystem | If missing or offline | System behavior |
+|---|---|---|
+| **Ollama / Models** | Service unreachable or models unpulled | `/healthz` reports `model: false` (degraded); chat routes return HTTP 503 with exact startup hints; offline citation verification still runs. |
+| **MongoDB** | `MONGODB_URI` not configured or mongod stopped | `/healthz` reports `mongo: false`; data routes return HTTP 503; frontend displays amber fixture notices on demo screens. |
+| **R2 Storage** | Cloud credentials omitted | Files save to local disk (`backend/data/uploads`), served at `/files/<name>`. |
+| **Speech-to-Text** | `faster-whisper` not installed | Text-only mode; voice routes return HTTP 503 with pip command; system TTS (`pyttsx3`) continues working. |
+| **Vector Embeddings** | Windows WDAC restriction on `_check_build.pyd` | Vector RAG reports unavailable via `/healthz`; deterministic extraction, citation verifier, and bbox highlight engine operate 100% offline. |
 
 ---
 
 ## 4. What is real, and what is a fixture
 
-Judges log in as a new patient. Every screen that is not wired to a backend says so,
-in the UI.
+Judges can test both portals. Every screen that is not wired to a live backend displays
+an amber notice in the UI.
 
 ### Real — backend + frontend
 
 | Feature | Implementation |
 |---|---|
-| Auth | JWT (HTTPBearer), Argon2 hashing, 7-day tokens |
-| Appointments | CRUD + status transitions, MongoDB |
-| Patient records | MongoDB, access checked per doctor–patient relationship |
-| Document extraction | pdfplumber → model → structured clinical JSON → MongoDB |
+| **Auth** | JWT (HTTPBearer), Argon2 hashing, 7-day tokens, HTTP 503 when DB offline |
+| **Appointments** | CRUD + status transitions, MongoDB with degraded fallback |
+| **Patient records** | MongoDB, access checked per doctor–patient relationship |
+| **Document extraction** | pdfplumber → model → structured clinical JSON |
 | **Citation verification** | `services/citations.py` — claim kept only if its quote exists on the cited page; wrong-page claims corrected; the rest dropped |
 | **Exact highlight boxes** | chunk → character span → union of pdfplumber word rects (`services/bbox.py`). No ±50 pt guessing |
-| Document RAG | FAISS + MiniLM embeddings, per-document index |
-| AI diagnosis | `med` profile over patient context, differential with confidence |
-| Patient chatbot | `slm` profile, 12 Indic languages, optional voice |
-| Speech-to-text | local faster-whisper; text-only degrade if absent |
-| File storage | R2 if configured, else local disk served by the API |
-| Health/preflight | `/healthz` + `scripts/preflight.py` |
+| **Evidence PNG rendering** | PyMuPDF highlight rendering with exact coordinates |
+| **Document RAG** | FAISS + MiniLM embeddings, per-document index |
+| **AI diagnosis** | `med` profile over patient context, differential with confidence |
+| **Patient chatbot** | `slm` profile, 11 Indic languages + English, optional voice |
+| **Speech-to-text** | local faster-whisper; text-only degrade if absent |
+| **File storage** | R2 if configured, else local disk served by the API |
+| **Health / preflight** | `/healthz` + `scripts/preflight.py` with capped probes |
 
 ### Fixture data — labelled in the UI
 
@@ -135,35 +163,34 @@ in the UI.
 | Notifications | same banner |
 | Test result charts | same banner; upload/OCR not implemented |
 
-The earlier README called these "fully functional". They are not, and they no longer
-claim to be.
-
 ---
 
 ## 5. Agent Skill
 
-The document core is also packaged as an Agent Skill, so the same pipeline can run
-inside Claude Code, OpenCode or any harness that reads `SKILL.md`:
+The document intelligence core is packaged as an Agent Skill following the [Agent Skills standard](https://agentskills.io/specification):
 
 ```
 .agents/skills/clinical-document-intelligence/
-├── SKILL.md
+├── SKILL.md                  # Specification-compliant manifest
 ├── scripts/
 │   ├── build_index.py        # PDF → chunks + FAISS index
 │   ├── query_pdf.py          # question → chunks with page + bbox (+ evidence PNG)
 │   └── extract_clinical.py   # PDF → structured JSON, verified citation-or-drop
 ├── references/
-│   └── extraction-schema.md  # the JSON Schema the model must satisfy
+│   └── extraction-schema.md  # JSON Schema the model must satisfy
 └── assets/
     └── sample-discharge-summary.pdf
 ```
 
-```bash
-python .agents/skills/clinical-document-intelligence/scripts/extract_clinical.py \
-  --pdf .agents/skills/clinical-document-intelligence/assets/sample-discharge-summary.pdf
+Execute the skill directly via CLI:
+
+```powershell
+.\backend\.venv\Scripts\python.exe .agents\skills\clinical-document-intelligence\scripts\extract_clinical.py `
+  --pdf .agents\skills\clinical-document-intelligence\assets\sample-discharge-summary.pdf `
+  --claims backend\tests\fixtures\test_claims.json
 ```
 
-Same engine, same verification, no web app required.
+Outputs verified clinical claims with status (`supported`, `page_corrected`, `dropped`) and exact coordinates.
 
 ---
 
@@ -195,67 +222,75 @@ that can still split, index and verify; removing the verifier leaves an untrustw
 
 ---
 
-## 7. API
+## 7. API Routes
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/healthz` | Subsystem status for the live demo |
-| `POST` | `/auth/signup`, `/auth/login` | Doctor/patient auth |
-| `GET` | `/doctors/patients` | Patient panel |
-| `POST` | `/appointments/` | Book / schedule |
-| `POST` | `/doctors/generate-diagnosis` | AI differential from patient context |
-| `POST` | `/doctors/chat` | Grounded Q&A over records or a PDF |
-| `POST` | `/chatbot/text`, `/chatbot/audio` | Patient assistant |
-| `POST` | `/appointments/transcribe-file` | Recording → text |
-| `POST` | `/ingest/pdf` | PDF → chunks → FAISS |
-| `GET` | `/files/<name>` | Local storage fallback |
+| `GET` | `/` | Root service metadata |
+| `GET` | `/healthz` | Subsystem status probe for live demo |
+| `POST` | `/auth/signup/patient` | Patient registration |
+| `POST` | `/auth/signup/doctor` | Doctor registration |
+| `POST` | `/auth/login` | JWT access token issuance |
+| `GET` | `/auth/me` | Current authenticated user profile |
+| `GET` | `/patients/` | Search & list patients (doctor auth) |
+| `GET` | `/patients/{patient_id}` | Patient record by ID (doctor auth) |
+| `GET` | `/appointments/` | Appointment listing by date/doctor/patient |
+| `POST` | `/appointments/` | Book / schedule appointment |
+| `POST` | `/appointments/{appointment_id}/diagnosis` | AI differential diagnosis from patient context |
+| `POST` | `/doctors/chat` | Grounded Q&A over patient history or uploaded PDF |
+| `POST` | `/doctors/upload-pdf` | Upload PDF for chat context |
+| `GET` | `/doctors/pdf/{document_id}` | Download uploaded PDF safely |
+| `POST` | `/chatbot/text` | Multilingual patient health assistant |
+| `POST` | `/chatbot/voice` | Voice-to-voice patient interaction |
+| `POST` | `/chatbot/speak` | Text-to-speech synthesis |
+| `POST` | `/ingest/document/{appointment_id}` | PDF ingestion & clinical extraction |
+| `GET` | `/files/{file_path}` | Local static file fallback |
 
 ---
 
-## 8. Repository layout
+## 8. Tests & Verification
 
-```
-backend/
-  src/llm/router.py               # the only model client (Ollama / optional Gemini)
-  src/services/citations.py       # citation-or-drop verifier
-  src/services/bbox.py            # exact word-rect geometry + evidence PNG renderer
-  src/services/pdf_rag.py         # extraction, chunking, FAISS
-  src/services/whisper_service.py # faster-whisper → text-only
-  src/routes/                     # auth, patients, appointments, doctor, ingest, chatbot
-  scripts/preflight.py            # 9-check readiness report
-  scripts/render_bboxes.py        # PDF page → highlighted_evidence.png
-  tests/                          # offline tests, no API key required
-frontend/                         # React 18 + Vite + Tailwind + Recharts
-.agents/skills/clinical-document-intelligence/
-```
-
----
-
-## 9. Tests
-
-```bash
+```powershell
 cd backend
-python tests/test_citations.py    # verifier: no model, no network
-python tests/test_bboxes.py       # geometry: no PDF library needed
+
+# 1. Verifier: 28 edge cases (normalization, quotes, drop reasons)
+.\.venv\Scripts\python.exe tests\test_citations.py
+
+# 2. Geometry: 29 coordinate tests (spans, unions, clamping)
+.\.venv\Scripts\python.exe tests\test_bboxes.py
+
+# 3. Integration: 15 checks on synthetic discharge summary & PNG render
+.\.venv\Scripts\python.exe tests\test_pdf_e2e.py
+
+# 4. Agent Skill: 22 checks for Agent Skills specification compliance
+.\.venv\Scripts\python.exe tests\test_agent_skill.py
+
+# 5. Connection & Resilience: 6 checks for degraded mode & error handling
+.\.venv\Scripts\python.exe tests\test_backend_connection.py
+
+# 6. Preflight diagnostic:
+.\.venv\Scripts\python.exe scripts\preflight.py
+
+# 7. Frontend build:
+cd ..\frontend
+npm run build
 ```
 
-Both run offline. They exist because the parts that decide whether a claim is shown
-must be provable without a model in the loop.
+**100 / 100 test checks passing** offline without requiring API keys or external clouds.
 
 ---
 
-## 10. Limits
+## 9. Limits & Clinical Disclaimer
 
 * **Not a medical device.** No regulatory clearance, no clinical validation. It is a
-  document-reading harness for a demo, and the UI says so.
-* Verification proves *the document says it*, not *the document is right*. A wrong lab
-  value quoted accurately is still shown — with its box, so a human can judge it.
-* The default 4B medical model is small. It will miss things. That is why every claim
-  is quotable and every quote is checkable.
-* FAISS indexes are in-memory; a restart rebuilds them.
+  document-reading harness for demonstration purposes, and the UI states this explicitly.
+* Verification proves *the document says it*, not *the document is clinically correct*. A wrong lab
+  value quoted accurately from a chart is still shown — with its exact box, so a human clinician can judge it.
+* The default 4B medical model is compact. It will miss things. That is why every claim
+  is quotable and every quote is verifiable.
 
 ---
 
-## 11. Licence
+## 10. Licence
 
-MIT — see `LICENSE`. Model weights retain their own licences (see §2).
+MIT — see `LICENSE`. Model weights retain their own respective provider licences (see §2).

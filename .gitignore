@@ -9,6 +9,10 @@ architecture/
 !.env.example
 backend/.env
 backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # python
 __pycache__/
@@ -26,6 +30,9 @@ dist/
 # artifacts
 *.log
 data/uploads/
+backend/data/uploads/
+backend/data/*.index/
+backend/data/*.index
 
 # local runtime (downloaded mongod, model caches)
 .local/

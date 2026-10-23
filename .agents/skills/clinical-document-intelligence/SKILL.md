@@ -1,6 +1,8 @@
 ---
 name: clinical-document-intelligence
 description: Read a clinical PDF and answer from it with evidence. Chunks a discharge summary, radiology report or lab sheet with the EUNOCURA pdf_rag service, retrieves the exact chunks for a question with page numbers and bounding boxes, extracts structured clinical facts (symptoms, diagnoses, medications, vitals, lab results, recommendations) with a local open-weight model, and keeps a claim only if the line it quotes really exists on the page it cites. That check is citation-or-drop, plain string comparison, never a model. Runs offline with zero API keys on Ollama (qwen2.5:7b-instruct, medgemma:4b). Use when an agent must read a clinical PDF and cite the exact page or box, when a claim needs checking against source text, or when a reviewer must see which extracted claims were dropped and why.
+license: MIT
+compatibility: Python >= 3.11 with pdfplumber and PyMuPDF. Offline citation verification requires no GPU or network.
 ---
 
 # Clinical document intelligence
