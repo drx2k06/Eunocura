@@ -1,0 +1,52 @@
+# EUNOCURA backend — pip install -r requirements.txt
+# Everything below is OSI-licensed except the optional cloud SDKs, which are
+# only imported when you explicitly opt into a cloud provider.
+
+# --- web
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+
+# --- data
+pymongo
+python-dotenv
+pydantic
+
+# --- open-weight model transport (Ollama is OpenAI-compatible)
+langchain
+langchain-core
+langchain-community
+langchain-openai
+openai
+# only needed when LLM_PROVIDER=gemini
+langchain-google-genai
+
+# --- document intelligence
+pdfplumber
+PyPDF2
+pymupdf
+pytesseract
+Pillow
+faiss-cpu
+sentence-transformers
+torch
+tiktoken
+
+# --- clinical language pipeline
+# (no proprietary model SDKs: the answer path is fully local)
+
+# --- speech (optional: text-only mode works without these)
+# faster-whisper
+soundfile
+pydub
+
+# --- storage
+boto3
+
+# --- auth / util
+pyjwt
+pwdlib[argon2]
+requests
+httpx
+websockets
+certifi

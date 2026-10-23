@@ -1,0 +1,28 @@
+.DS_Store
+Claude.md
+architecture/
+.vscode/
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# artifacts
+*.log
+data/uploads/
