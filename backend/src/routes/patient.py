@@ -7,6 +7,11 @@ from src.db import user_collection
 
 router = APIRouter()
 
+# Never project the credential out of the database. A patient list is a UI payload,
+# not an authentication record; shipping password hashes to the browser is a leak even
+# if the hash is slow to crack.
+PATIENT_PROJECTION = {"hashed_password": 0}
+
 @router.get("/")
 async def get_patients(
     filter: Optional[str] = None,
@@ -17,10 +22,10 @@ async def get_patients(
         query["$text"] = {"$search": filter}
         cursor = user_collection.find(
             query,
-            {"score": {"$meta": "textScore"}}
+            {"score": {"$meta": "textScore"}, **PATIENT_PROJECTION}
         ).sort([("score", {"$meta": "textScore"})]).limit(10)
     else:
-        cursor = user_collection.find(query).limit(10)
+        cursor = user_collection.find(query, PATIENT_PROJECTION).limit(10)
 
     results = await cursor.to_list(length=10)
     
@@ -42,7 +47,7 @@ async def get_patient(patient_id: str, _ = Depends(check_doctor_exists)):
         except:
              query = {"_id": patient_id, "role": "patient"}
              
-        user = await user_collection.find_one(query)
+        user = await user_collection.find_one(query, PATIENT_PROJECTION)
         if not user:
              raise HTTPException(status_code=404, detail="Patient not found")
         
