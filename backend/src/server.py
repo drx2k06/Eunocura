@@ -25,7 +25,7 @@ from src.routes.root import router as root_router
 APP_NAME = "EUNOCURA"
 VERSION = "2.0.0"
 
-app = FastAPI(title=APP_NAME, version=VERSION, port=PORT)
+app = FastAPI(title=APP_NAME, version=VERSION)
 
 _origins = os.getenv(
     "FRONTEND_ORIGINS",
@@ -91,13 +91,38 @@ async def root():
     }
 
 
+@app.get("/health")
 @app.get("/healthz")
 async def healthz():
-    """Preflight for the live demo: what is actually operational right now."""
-    model = router.health()
-    mongo_reachable = await db.ping() if db.MONGO_CONFIGURED else False
+    """Preflight for the live demo: what is actually operational right now.
+
+    Every probe is capped: a demo must answer in about a second even when the
+    database is unreachable and the model host is firewalled.
+    """
+    import asyncio as _asyncio
+
+    async def _bounded(coro, seconds, default):
+        try:
+            return await _asyncio.wait_for(coro, timeout=seconds)
+        except Exception:
+            return default
+
+    model = await _bounded(_asyncio.to_thread(router.health), 2.5, {
+        "provider": "unknown", "reachable": False, "detail": "timed out",
+    })
+    mongo_reachable = await _bounded(db.ping(), 2.0, False) if db.MONGO_CONFIGURED else False
     stt = _stt_status()
-    embeddings = _has_module("faiss") and _has_module("sentence_transformers")
+
+    # Report what actually initialised, not just what is installed: torch can be
+    # present and still refuse to load (Windows Application Control, missing libs).
+    try:
+        from src.services import pdf_rag as _pdf_rag
+        rag_reason = getattr(_pdf_rag, "RAG_UNAVAILABLE_REASON", "") or (
+            "" if getattr(_pdf_rag, "pdf_rag_service", None) else "PDF RAG service did not initialise"
+        )
+    except Exception as exc:  # noqa: BLE001
+        rag_reason = f"pdf_rag import failed: {exc}"
+    embeddings = _has_module("faiss") and _has_module("sentence_transformers") and not rag_reason
 
     checks = {
         "model": model["reachable"] or model["provider"] == "none",
@@ -129,7 +154,9 @@ async def healthz():
             "vector_store": "faiss" if _has_module("faiss") else "missing",
             "embeddings_model": "sentence-transformers/all-MiniLM-L6-v2",
             "available": embeddings,
-            "hint": "" if embeddings else "pip install faiss-cpu sentence-transformers torch",
+            "hint": rag_reason if embeddings else (
+                rag_reason or "pip install faiss-cpu sentence-transformers torch"
+            ),
         },
     }
 

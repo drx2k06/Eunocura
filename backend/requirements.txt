@@ -11,6 +11,7 @@ python-multipart
 pymongo
 python-dotenv
 pydantic
+email-validator
 
 # --- open-weight model transport (Ollama is OpenAI-compatible)
 langchain
@@ -35,9 +36,10 @@ tiktoken
 # --- clinical language pipeline
 # (no proprietary model SDKs: the answer path is fully local)
 
-# --- speech (optional: text-only mode works without these)
-# faster-whisper
-soundfile
+# --- speech (local only: faster-whisper STT + pyttsx3 TTS)
+# Remove these two lines to run in text-only mode; nothing else breaks.
+faster-whisper
+pyttsx3
 pydub
 
 # --- storage

@@ -28,6 +28,10 @@ URI = MONGODB_URI or DEFAULT_URI
 
 connection_kwargs = {
     "server_api": server_api.ServerApi(version="1", strict=False, deprecation_errors=True),
+    # Never let a missing database stall a request (or the demo) for 30 seconds.
+    "serverSelectionTimeoutMS": 1500,
+    "connectTimeoutMS": 1500,
+    "socketTimeoutMS": 4000,
 }
 
 # Allow invalid certificates for development (MongoDB Atlas SSL certificate verification)

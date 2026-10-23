@@ -1,28 +1,42 @@
-import torch
-import torch.nn as nn
+"""Optional LSTM trend extrapolation.
+
+Torch is a heavy optional dependency. It is imported defensively so that the API
+boots and serves every other route on a machine where torch is not installed;
+`predict_future_metrics` then returns no extrapolation instead of failing.
+"""
 import numpy as np
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
-class LSTMModel(nn.Module):
-    def __init__(self, input_size=1, hidden_size=32, num_layers=1, output_size=1):
-        super(LSTMModel, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_size, output_size)
+try:  # optional: only needed for trend extrapolation
+    import torch
+    import torch.nn as nn
 
-    def forward(self, x):
-        # Initialize hidden state and cell state
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        
-        # Forward propagate LSTM
-        out, _ = self.lstm(x, (h0, c0))
-        
-        # Decode the hidden state of the last time step
-        out = self.fc(out[:, -1, :])
-        return out
+    class LSTMModel(nn.Module):
+        def __init__(self, input_size=1, hidden_size=32, num_layers=1, output_size=1):
+            super(LSTMModel, self).__init__()
+            self.hidden_size = hidden_size
+            self.num_layers = num_layers
+            self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+            self.fc = nn.Linear(hidden_size, output_size)
+
+        def forward(self, x):
+            # Initialize hidden state and cell state
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+            c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+
+            # Forward propagate LSTM
+            out, _ = self.lstm(x, (h0, c0))
+
+            # Decode the hidden state of the last time step
+            out = self.fc(out[:, -1, :])
+            return out
+
+except Exception:  # pragma: no cover - exercised only without torch
+    torch = None
+    nn = None
+    LSTMModel = None
+
 
 async def predict_future_metrics(metrics_data: Dict[str, Any], n_future: int = 2) -> Dict[str, Any]:
     """
@@ -31,6 +45,11 @@ async def predict_future_metrics(metrics_data: Dict[str, Any], n_future: int = 2
     Returns: { metric_name: [ { date: str, value: float, is_prediction: True } ] }
     """
     predictions = {}
+
+    if torch is None:
+        # Torch is optional. Trend extrapolation is the only feature that needs it,
+        # so report the gap instead of crashing the diagnosis endpoint.
+        return {"_note": "trend extrapolation unavailable: pip install torch"}
     
     # Define metric names we care about
     allowed_metrics = [

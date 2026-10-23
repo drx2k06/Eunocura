@@ -37,6 +37,9 @@ SUPPORTED_LANGUAGES = {
     "english": {"code": "en-IN", "name": "English"}
 }
 
+# Local TTS uses the operating system's installed voices. The API keeps a `speakers`
+# field for compatibility with existing clients; there is one logical voice.
+SPEAKER_OPTIONS = ["system-default"]
 
 
 async def convert_audio_to_wav(audio_data: bytes) -> bytes:

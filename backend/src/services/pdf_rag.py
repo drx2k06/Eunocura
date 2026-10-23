@@ -621,16 +621,19 @@ class PDFRAGService:
 
 # Global instance - only create if dependencies are available
 pdf_rag_service = None
+RAG_UNAVAILABLE_REASON = ""
 if FAISS_AVAILABLE:
     try:
-        print("🔧 Initializing PDF RAG service...")
+        print("Initializing PDF RAG service...")
         pdf_rag_service = PDFRAGService()
-        print("✅ PDF RAG service initialized successfully")
-    except Exception as e:
-        print(f"❌ Warning: Could not initialize PDF RAG service: {e}")
-        import traceback
-        traceback.print_exc()
+        print("PDF RAG service initialized")
+    except Exception as e:  # noqa: BLE001
+        print(f"Warning: could not initialize the PDF RAG service: {e}")
+        RAG_UNAVAILABLE_REASON = f"PDF RAG unavailable: {e}"
         pdf_rag_service = None
 else:
-    print("⚠️  PDF RAG service not available: FAISS dependencies not installed")
-    print("   Please install: pip install faiss-cpu langchain-community")
+    RAG_UNAVAILABLE_REASON = (
+        "FAISS dependencies not installed: pip install faiss-cpu sentence-transformers"
+    )
+    print("PDF RAG service not available: FAISS dependencies not installed")
+    print("   Please install: pip install faiss-cpu sentence-transformers")

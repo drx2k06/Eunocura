@@ -26,3 +26,6 @@ dist/
 # artifacts
 *.log
 data/uploads/
+
+# local runtime (downloaded mongod, model caches)
+.local/
