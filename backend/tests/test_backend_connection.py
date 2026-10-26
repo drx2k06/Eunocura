@@ -97,7 +97,8 @@ def test_chatbot_voice_when_speech_unreachable():
     except urllib.error.HTTPError as e:
         assert e.code == 503
         data = json.loads(e.read().decode("utf-8"))
-        assert "faster-whisper is not installed" in data.get("detail", "")
+        detail = data.get("detail", "")
+        assert "faster-whisper" in detail or "transcription" in detail.lower() or "speech" in detail.lower()
 
 
 def test_protected_upload_pdf_requires_auth():

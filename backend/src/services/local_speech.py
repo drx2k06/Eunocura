@@ -140,27 +140,30 @@ def transcribe_bytes(
             handle.write(audio)
             tmp_path = handle.name
 
-        segments, info = model.transcribe(
-            tmp_path,
-            language=_whisper_lang(language),
-            task="translate",
-            vad_filter=True,
-            beam_size=1,
-        )
-        pieces = []
-        for segment in segments:
-            text = (segment.text or "").strip()
-            if text:
-                pieces.append(text)
+        try:
+            segments, info = model.transcribe(
+                tmp_path,
+                language=_whisper_lang(language),
+                task="translate",
+                vad_filter=True,
+                beam_size=1,
+            )
+            pieces = []
+            for segment in segments:
+                text = (segment.text or "").strip()
+                if text:
+                    pieces.append(text)
 
-        transcript = " ".join(pieces).strip()
-        detected = getattr(info, "language", None) or _whisper_lang(language) or "en"
-        return {
-            "translated_text": transcript,
-            "detected_language": detected,
-            "language_name": _WHISPER_TO_NAME.get(detected, detected),
-            "duration": float(getattr(info, "duration", 0.0) or 0.0),
-        }
+            transcript = " ".join(pieces).strip()
+            detected = getattr(info, "language", None) or _whisper_lang(language) or "en"
+            return {
+                "translated_text": transcript,
+                "detected_language": detected,
+                "language_name": _WHISPER_TO_NAME.get(detected, detected),
+                "duration": float(getattr(info, "duration", 0.0) or 0.0),
+            }
+        except Exception as exc:
+            raise SpeechUnavailable(f"Audio transcription failed: {exc}") from exc
     finally:
         if tmp_path:
             try:
